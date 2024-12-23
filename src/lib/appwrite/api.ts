@@ -1,6 +1,6 @@
 import { ID, Query } from "appwrite";
 
-import { appwriteConfig, account, databases, storage, avatars } from "./config";
+import { appwriteConfig, account, databases, storage, avatars, ImageGravity } from "./config";
 import { IUpdatePost, INewPost, INewUser, IUpdateUser } from "@/types";
 
 // ============================================================
@@ -63,7 +63,7 @@ export async function saveUserToDB(user: {
 // ============================== SIGN IN
 export async function signInAccount(user: { email: string; password: string }) {
   try {
-    const session = await account.createEmailSession(user.email, user.password);
+    const session = await account.createEmailPasswordSession(user.email, user.password);
 
     return session;
   } catch (error) {
@@ -186,7 +186,7 @@ export function getFilePreview(fileId: string) {
       fileId,
       2000,
       2000,
-      "top",
+      ImageGravity.Top,
       100
     );
 
@@ -283,13 +283,19 @@ export async function updatePost(post: IUpdatePost) {
       if (!uploadedFile) throw Error;
 
       // Get new file url
-      const fileUrl = getFilePreview(uploadedFile.$id);
-      if (!fileUrl) {
-        await deleteFile(uploadedFile.$id);
-        throw Error;
+      const fileUrlStr = getFilePreview(uploadedFile.$id);
+      try {
+        if (!fileUrlStr) {
+          await deleteFile(uploadedFile.$id);
+          throw new Error('fileUrlStr is missing');
+        }
+      
+        const fileUrl = new URL(fileUrlStr);
+        image = { ...image, imageUrl: fileUrl, imageId: uploadedFile.$id };
+      } catch (error) {
+        console.error('Error converting fileUrlStr to URL:', error);
+        throw error;
       }
-
-      image = { ...image, imageUrl: fileUrl, imageId: uploadedFile.$id };
     }
 
     // Convert tags into array
